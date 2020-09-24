@@ -5,12 +5,16 @@
     <e p="C:\Users\mark.virchenko\.Rider2019.3\system\resharper-host\local\Transient\ReSharperHost\v193\SolutionCaches\_StartupPOCBot.-2082744786.00" t="ExcludeRecursive" />
     <e p="D:\Git\StartupPOCBot" t="IncludeRecursive">
       <e p="bin" t="ExcludeRecursive" />
+      <e p="credentials.json" t="Include" />
+      <e p="GoogleSheets.fs" t="Include" />
       <e p="obj" t="ExcludeRecursive" />
       <e p="packages" t="ExcludeRecursive" />
       <e p="Program.fs" t="Include" />
-      <e p="SmsAuthentication.fs" t="Include" />
+      <e p="Settings.job" t="Include" />
       <e p="StartupPOCBot.fsproj" t="IncludeRecursive" />
       <e p="StartupPOCBot.sln" t="IncludeFlat" />
+      <e p="Texts.fs" t="Include" />
+      <e p="Types.fs" t="Include" />
     </e>
   </component>
 </project>

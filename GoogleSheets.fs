@@ -8,10 +8,7 @@ open Google.Apis.Auth.OAuth2;
 open Google.Apis.Sheets.v4;
 open Google.Apis.Sheets.v4.Data;
 open Google.Apis.Services;
-open Google.Apis.Sheets.v4
 open Google.Apis.Util.Store
-open Twilio.Types
-open System.Linq
 open StartupPOCBot.Types
 
 let scopes:(string list) = [ SheetsService.Scope.Spreadsheets ]
@@ -66,9 +63,9 @@ let appendToSheet sheetId values = async {
     printfn "insert to db id: %s; response: %s" sheetId response.TableRange
 }
 
-let addPurchaseToDB (userId:string) (userName:string) (firstName:string) (lastName:string) (timeStampUTC:DateTime) (serviceName:string) (serviceGuid:Guid) (uahSpent:decimal) =                                    
+let addPurchaseToDB (userId:string) (userName:string) (firstName:string) (lastName:string) (timeStampUTC:DateTime) (serviceName:string) (serviceGuid:Guid) (uahSpent:decimal) (baristaId:string) =                                    
     appendToSheet purchasesId
-                  [box userId; box userName; box firstName; box lastName; box timeStampUTC; box serviceName; box serviceGuid; box uahSpent]           
+                  [box userId; box userName; box firstName; box lastName; box timeStampUTC; box serviceName; box serviceGuid; box uahSpent; box baristaId]           
     
     
 let addLogToDb (logType:string) (userId:int64) (username:string) (firstName:string) (lastName:string) (info:string)  =
@@ -81,6 +78,63 @@ let getRows spreadsheetId range =
     let request = service.Spreadsheets.Values.Get(spreadsheetId, range)
     let response = request.ExecuteAsync() |> Async.AwaitTask
     response
+
+let getAllUserIds () = async {
+    let! rows = getRows logsId "B:B"
+    let ids = 
+        [for i in rows.Values do yield! i]
+        |> Seq.skip 1
+        |> Seq.map (fun i -> (i.ToString()) )
+        |> Seq.distinct
+        |> Seq.skipWhile (fun i -> i <> "428409334")
+        |> Seq.skip 1
+        |> Seq.toArray
+        
+    return ids
+}
+
+let getCodeFromId (userId:string) = async {
+    let! response = getRows logsId "B:B" // range?
+    
+    let ids = 
+        [for i in response.Values do yield! i] 
+        |> Seq.map (fun i -> (i.ToString()) )
+        |> Seq.takeWhile (fun i -> i <> userId)
+        |> Seq.toArray
+
+    let mutable length = 4
+
+    for id in ids do
+        if id.Length >= length && userId.Substring(userId.Length - length) = id.Substring(id.Length - length) 
+        then length <- length + 1
+
+    return userId.Substring(userId.Length - length) // substr from end?
+}
+
+let getIdFromCode (code:string) = async {
+    if code.Length < 4 
+        then return Option.None
+        else    
+            let! response = getRows logsId "B:B" // range?
+
+            let ids = 
+                [for i in response.Values do yield! i] 
+                |> Seq.map (fun i -> (i.ToString()) )
+            
+            let mutable length = 4
+            let mutable lastId = Seq.item 0 ids
+            
+            for id in ids do
+                if length <= code.Length && id.Length >= length && code.Substring(code.Length - length) = id.Substring(id.Length - length)
+                    then
+                        length <- length + 1
+                        lastId <- id
+                                      
+            return match (Int64.TryParse(lastId))
+                    with
+                    | (true, a) -> Some a
+                    | _ -> Option.None
+}
 
 let isFirstPurchase (userId:int64) = async {
     let! response = getRows purchasesId "A:A"
@@ -96,6 +150,7 @@ let tryGetStaff (userId:int64) = async {
     
     return Option.bind (fun i -> Some <| Guid ((Seq.item 1 i).ToString()) ) staffUser
 }
+
 let getServices () = async {
     let! response = getRows servicesPersonelId "F:H"
     let values = [for i in (Seq.tail response.Values) do
@@ -108,15 +163,4 @@ let getServices () = async {
                   ]
                           
     return List.map (fun (guid, name, location) -> { Id=guid; Name=name; Location=location }) values
-}
-let getInfo (userid:int64) = async {
-    let! response = getRows logsId "A:F"
-    let values = Seq.tryFind (fun (i) ->
-        let logType = Seq.item 0 i
-        let logUserId = Seq.item 1 i
-        printfn "%A" logType
-        printfn "%A" logUserId
-        logType.ToString() = "Number-Verification-Success" && logUserId.ToString() = userid.ToString()) response.Values
-    
-    return Option.bind (fun i -> Some <| (Seq.last i).ToString() ) values
 }
